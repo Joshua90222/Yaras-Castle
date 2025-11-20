@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>My Website</title>
+
+<style>
+
+  :root {
+    --primary: #4a6cf7;
+    --text: #1a1a1a;
+    --bg: #f7f7fb;
+    --nav-bg: #ffffff;
+    --nav-hover: #eef1ff;
+    --transition-speed: 0.25s;
+
+    --slider-offset-right: 30px;
+  }
+
+  body.dark {
+    --text: #eaeaea;
+    --bg: #1c1c1f;
+    --nav-bg: #2a2a2d;
+    --nav-hover: #3a3a3d;
+  }
+
+  body {
+    margin: 0;
+    background: var(--bg);
+    font-family: "Segoe UI", Roboto, Arial, sans-serif;
+    color: var(--text);
+    transition: background var(--transition-speed), color var(--transition-speed);
+    overflow-x: hidden;
+  }
+
+    /* --- FIXED NAVBAR --- */
+    nav {
+      width: 100%;
+      position: fixed;
+      top: 0;
+      background: #ffffff !important;
+      border-bottom: 1px solid #ccc;
+      z-index: 50;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 12px 24px;
+    }
+
+  body.dark nav {
+      background: #2a2a2d !important;
+  }
+
+  .logo {
+    position: absolute;
+    left: 24px;
+    font-size: 1.4rem;
+    font-weight: 700;
+    color: var(--primary);
+    white-space: nowrap;
+  }
+
+  nav ul {
+    list-style: none;
+    display: flex;
+    gap: 20px;
+    margin: 0;
+    padding: 0;
+  }
+
+  nav ul li a {
+    text-decoration: none;
+    color: var(--text);
+    padding: 8px 14px;
+    border-radius: 8px;
+    transition: var(--transition-speed);
+    font-weight: 500;
+    white-space: nowrap;
+  }
+
+  nav ul li a:hover {
+    background: var(--nav-hover);
+    color: var(--primary);
+  }
+
+  .right-controls {
+    position: absolute;
+    right: var(--slider-offset-right);
+    display: flex;
+    align-items: center;
+    gap: 120px;
+  }
+
+  .toggle-label {
+    font-size: 0.9rem;
+    opacity: 0.85;
+  }
+
+  .switch {
+    position: relative;
+    width: 50px;
+    height: 26px;
+  }
+
+  .switch input {
+    display: none;
+  }
+
+  .slider {
+    position: absolute;
+    cursor: pointer;
+    background: #ccc;
+    border-radius: 20px;
+    width: 100%;
+    height: 100%;
+    top: 0;
+    left: -110px;
+    transition: var(--transition-speed);
+  }
+
+  .slider:before {
+    content: "";
+    position: absolute;
+    width: 22px;
+    height: 22px;
+    background: white;
+    border-radius: 50%;
+    top: 2px;
+    left: 2px;
+    transition: var(--transition-speed);
+  }
+
+  input:checked + .slider {
+    background: var(--primary);
+  }
+
+  input:checked + .slider:before {
+    transform: translateX(24px);
+  }
+
+  .hero {
+    text-align: center;
+    padding-top: 90px;   /* FIXED: Starts just under navbar */
+    padding-left: 30px;
+    padding-right: 30px;
+  }
+
+  .twitch-wrapper {
+    display: flex;
+    justify-content: center;
+    margin-top: 40px;
+  }
+/* Default (1080p and below) */
+.carrd-container {
+    height: calc(140vh - 90px) !important;
+}
+
+/* 1440p and bigger screens */
+@media (min-height: 1300px) {
+    .carrd-container {
+        height: calc(100vh - 90px) !important;
+    }
+}
+
+</style>
+</head>
+
+<body>
+
+<nav>
+  <div class="logo">Yara's Castle</div>
+
+  <ul id="nav-tabs">
+    <li><a href="index.html">Home</a></li>
+    <li><a href="map/index.html">Map</a></li>
+    <li><a href="vods/index.html">VOD's</a></li>
+    <li><a href="other/index.html">Other</a></li>
+  </ul>
+
+  <div class="right-controls">
+    <span class="toggle-label">Night Mode</span>
+    <label class="switch">
+      <input type="checkbox" id="darkToggle">
+      <span class="slider"></span>
+    </label>
+  </div>
+</nav>
+
+<section class="hero">
+
+  <!-- ⭐ PERFECTLY FITTING CARRD ⭐ -->
+  <div class="carrd-container"
+       style="width:100%; height:calc(100vh - 90px); margin-top:-20px; border-radius:20px; overflow:hidden;">
+
+    <iframe
+      src="https://yara-ofzela.carrd.co"
+      style="width:100%; height:100%; border:none; border-radius:20px; overflow:hidden;"
+      scrolling="no"
+      loading="lazy">
+    </iframe>
+
+  </div>
+
+  <!-- ⭐ TWITCH EMBED ⭐ -->
+  <div class="twitch-wrapper" style="margin-top:20px; display:flex; justify-content:center;">
+    <iframe
+      src="https://player.twitch.tv/?channel=yara_ofzelda&parent=yara-sites.netlify.app"
+      width="854"
+      height="480"
+      allowfullscreen>
+    </iframe>
+  </div>
+
+</section>
+
+<script>
+  const toggle = document.getElementById("darkToggle");
+
+  if (localStorage.getItem("theme") === "dark") {
+    document.body.classList.add("dark");
+    toggle.checked = true;
+  }
+
+  toggle.addEventListener("change", () => {
+    if (toggle.checked) {
+      document.body.classList.add("dark");
+      localStorage.setItem("theme", "dark");
+    } else {
+      document.body.classList.remove("dark");
+      localStorage.setItem("theme", "light");
+    }
+  });
+</script>
+
+</body>
+</html>

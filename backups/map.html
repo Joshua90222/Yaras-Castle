@@ -1,0 +1,428 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Yara's Interactive Castle</title>
+
+  <!-- Dark mode preload: MUST be first in head -->
+  <script>
+    (function () {
+      if (localStorage.getItem("theme") === "dark") {
+        // Apply dark theme BEFORE first paint
+        document.documentElement.classList.add("dark-preload");
+      }
+    })();
+  </script>
+
+  <!-- Leaflet CSS -->
+  <link
+    rel="stylesheet"
+    href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+  />
+
+  <style>
+    :root {
+      --primary: #4a6cf7;
+      --text: #1a1a1a;
+      --bg: #f7f7fb;
+      --nav-bg: #ffffff;
+      --nav-hover: #eef1ff;
+      --transition-speed: 0.25s;
+      --slider-offset-right: 30px;
+    }
+
+    /* Shared dark theme variables (for normal dark + preload) */
+    body.dark,
+    .dark-preload {
+      --text: #eaeaea;
+      --bg: #1c1c1f;
+      --nav-bg: #2a2a2d;
+      --nav-hover: #3a3a3d;
+    }
+
+    /* Disable transitions during preload so there is no "fade" from light to dark */
+    .dark-preload *,
+    .dark-preload *::before,
+    .dark-preload *::after {
+      transition: none !important;
+    }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      font-family: "Segoe UI", Roboto, Arial, sans-serif;
+      color: var(--text);
+      transition: background var(--transition-speed), color var(--transition-speed);
+      overflow-x: hidden;
+    }
+
+    /* --- NAVBAR --- */
+    nav {
+      width: 100%;
+      background: var(--nav-bg);
+      border-bottom: 1px solid #ccc;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 12px 24px;
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      position: relative;
+    }
+
+    .logo {
+      position: absolute;
+      left: 24px;
+      font-size: 1.4rem;
+      font-weight: 700;
+      color: var(--primary);
+      white-space: nowrap;
+    }
+
+    nav ul {
+      list-style: none;
+      display: flex;
+      gap: 20px;
+      margin: 0;
+      padding: 0;
+    }
+
+    nav ul li a {
+      text-decoration: none;
+      color: var(--text);
+      padding: 8px 14px;
+      border-radius: 8px;
+      transition: var(--transition-speed);
+      font-weight: 500;
+      white-space: nowrap;
+    }
+
+    nav ul li a:hover {
+      background: var(--nav-hover);
+      color: var(--primary);
+    }
+
+    nav ul li a.active {
+      color: var(--primary);
+      font-weight: 700;
+    }
+
+    .right-controls {
+      position: absolute;
+      right: var(--slider-offset-right);
+      display: flex;
+      align-items: center;
+      gap: 120px;
+    }
+
+    .switch {
+      position: relative;
+      width: 50px;
+      height: 26px;
+    }
+
+    .switch input {
+      display: none;
+    }
+
+    .slider {
+      position: absolute;
+      cursor: pointer;
+      background: #ccc;
+      border-radius: 20px;
+      width: 100%;
+      height: 100%;
+      top: 0;
+      left: -110px;
+      transition: var(--transition-speed);
+    }
+
+    .slider:before {
+      content: "";
+      position: absolute;
+      width: 22px;
+      height: 22px;
+      background: white;
+      border-radius: 50%;
+      top: 2px;
+      left: 2px;
+      transition: var(--transition-speed);
+    }
+
+    input:checked + .slider {
+      background: var(--primary);
+    }
+
+    input:checked + .slider:before {
+      transform: translateX(24px);
+    }
+
+    /* MAP FULLSCREEN */
+    #map {
+      position: absolute;
+      top: 40px;
+      left: 0;
+      width: 100%;
+      height: calc(100vh - 60px);
+    }
+
+    /* Leaflet Controls */
+    .ctrl {
+      background: #fff;
+      border: 1px solid #ccc;
+      border-radius: 8px;
+      padding: 8px 10px;
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    }
+
+    .back-btn {
+      padding: 6px 10px;
+      border: 0;
+      background: #eee;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+
+    .area-label {
+      pointer-events: none;
+      font-weight: 600;
+      color: #333;
+    }
+
+    @media (max-width: 700px) {
+      :root {
+        --slider-offset-right: 100px;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <!-- NAVIGATION -->
+  <nav>
+    <div class="logo">Yara's Castle</div>
+
+    <ul>
+      <li><a href="../index.html">Home</a></li>
+      <li><a class="active" href="index.html">Map</a></li>
+      <li><a href="../vods/index.html">VOD's</a></li>
+      <li><a href="../other/index.html">Other</a></li>
+    </ul>
+
+    <div class="right-controls">
+      <span class="toggle-label">Night Mode</span>
+      <label class="switch">
+        <input type="checkbox" id="darkToggle" />
+        <span class="slider"></span>
+      </label>
+    </div>
+  </nav>
+
+  <div id="map"></div>
+
+  <!-- Leaflet JS -->
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+  <!-- MAP LOGIC (unchanged from your version) -->
+  <script>
+    const BASE = {
+      url: 'https://media.istockphoto.com/id/1403910806/vector/old-vintage-map-of-an-island-with-kingdoms-with-handmade-drawings-for-treasure-games-and.jpg?s=612x612&w=0&k=20&c=s7pmJgj1QiWsJ3aKzuWj8aN_8Y-soNC0WYn2I8fsbbk=',
+      width: 2000,
+      height: 1200
+    };
+
+    const AREAS = {
+      northwest: {
+        label: 'Other Castle',
+        bounds: [[501.0, 382.0], [422.0, 276.0]],
+        image: 'https://www.elventower.com/wp-content/uploads/2016/11/Small-town-castle-W-1200x900.jpg',
+        markers: [
+          { coords: [473.6, 349.4], title: 'NW-1', popup: 'Room one' },
+          { coords: [476.9, 300.6], title: 'NW-2', popup: 'Room Two' }
+        ]
+      },
+      southeast: {
+        label: 'Yaras Castle',
+        bounds: [[829.0, 1559.0], [740.0, 1451.0]],
+        image: 'https://usercontent.one/wp/www.wistedt.net/wp-content/uploads/2019/08/medieval_castle_map-803x1024.png',
+        markers: [
+          { coords: [798.3, 1521.7], title: 'SE-1', popup: 'Room 1' }
+        ]
+      }
+    };
+
+    const map = L.map('map', {
+      crs: L.CRS.Simple,
+      minZoom: -2,
+      maxZoom: 6,
+      zoomSnap: 0.25,
+      zoomDelta: 0.5,
+      wheelPxPerZoomLevel: 80
+    });
+
+    const imageBounds = [[0, 0], [BASE.height, BASE.width]];
+    const baseOverlay = L.imageOverlay(BASE.url, imageBounds).addTo(map);
+    map.fitBounds(imageBounds);
+    map.setMaxBounds(imageBounds);
+
+    const areaPolys = {};
+    const areaLabels = {};
+    const detailOverlays = {};
+    const markerGroups = {};
+    let activeAreaKey = null;
+
+    const overviewGroup = L.layerGroup().addTo(map);
+
+    function makeRectStyle(active) {
+      return {
+        color: active ? '#ff4d4f' : '#0d6efd',
+        weight: active ? 3 : 2,
+        dashArray: active ? '4 2' : '6 4',
+        fillOpacity: active ? 0.1 : 0.05
+      };
+    }
+
+    function ensureMarkerGroup(areaKey) {
+      if (!markerGroups[areaKey]) {
+        markerGroups[areaKey] = L.layerGroup();
+        AREAS[areaKey].markers.forEach(m => {
+          const marker = L.marker(m.coords).bindPopup(m.popup);
+          markerGroups[areaKey].addLayer(marker);
+        });
+      }
+      return markerGroups[areaKey];
+    }
+
+    function ensureDetailOverlay(areaKey) {
+      if (!detailOverlays[areaKey]) {
+        detailOverlays[areaKey] = L.imageOverlay(
+          AREAS[areaKey].image,
+          AREAS[areaKey].bounds
+        );
+      }
+      return detailOverlays[areaKey];
+    }
+
+    function padded(bounds, pad = 20) {
+      const [[y1, x1], [y2, x2]] = bounds;
+      return [[y1 - pad, x1 - pad], [y2 + pad, x2 + pad]];
+    }
+
+    function enterDetail(areaKey) {
+      if (activeAreaKey === areaKey) return;
+
+      if (activeAreaKey) {
+        map.removeLayer(ensureDetailOverlay(activeAreaKey));
+        map.removeLayer(ensureMarkerGroup(activeAreaKey));
+      }
+
+      map.removeLayer(baseOverlay);
+      map.removeLayer(overviewGroup);
+
+      ensureDetailOverlay(areaKey).addTo(map);
+      ensureMarkerGroup(areaKey).addTo(map);
+
+      Object.keys(AREAS).forEach(k =>
+        areaPolys[k].setStyle(makeRectStyle(k === areaKey))
+      );
+
+      map.setMaxBounds(padded(AREAS[areaKey].bounds, 40));
+      map.fitBounds(AREAS[areaKey].bounds);
+
+      activeAreaKey = areaKey;
+      backCtrl.setVisible(true);
+    }
+
+    function resetToOverview() {
+      if (activeAreaKey) {
+        map.removeLayer(ensureDetailOverlay(activeAreaKey));
+        map.removeLayer(ensureMarkerGroup(activeAreaKey));
+      }
+
+      activeAreaKey = null;
+
+      Object.values(markerGroups).forEach(g => map.removeLayer(g));
+
+      baseOverlay.addTo(map);
+      overviewGroup.addTo(map);
+
+      Object.keys(AREAS).forEach(k =>
+        areaPolys[k].setStyle(makeRectStyle(false))
+      );
+
+      map.setMaxBounds(imageBounds);
+      map.fitBounds(imageBounds);
+
+      backCtrl.setVisible(false);
+    }
+
+    Object.entries(AREAS).forEach(([key, cfg]) => {
+      const rect = L.rectangle(cfg.bounds, makeRectStyle(false))
+        .on('click', () => enterDetail(key));
+
+      overviewGroup.addLayer(rect);
+      areaPolys[key] = rect;
+
+      const cy = (cfg.bounds[0][0] + cfg.bounds[1][0]) / 2;
+      const cx = (cfg.bounds[0][1] + cfg.bounds[1][1]) / 2;
+
+      const label = L.marker([cy, cx], {
+        icon: L.divIcon({
+          className: "area-label",
+          html: cfg.label
+        })
+      });
+
+      overviewGroup.addLayer(label);
+      areaLabels[key] = label;
+    });
+
+    const BackControl = L.Control.extend({
+      options: { position: "topright" },
+      onAdd: function () {
+        const div = L.DomUtil.create("div", "ctrl");
+        div.style.display = "none";
+        div.innerHTML = `<button class="back-btn">← Back</button>`;
+        div.querySelector(".back-btn").onclick = () => resetToOverview();
+        this._container = div;
+        return div;
+      },
+      setVisible: function (show) {
+        this._container.style.display = show ? "block" : "none";
+      }
+    });
+
+    const backCtrl = new BackControl().addTo(map);
+
+    resetToOverview();
+  </script>
+
+  <!-- NIGHT MODE TOGGLE -->
+  <script>
+    const toggle = document.getElementById("darkToggle");
+
+    // Apply final dark mode state after DOM is ready
+    if (localStorage.getItem("theme") === "dark") {
+      document.body.classList.add("dark");
+      toggle.checked = true;
+    }
+
+    toggle.addEventListener("change", () => {
+      if (toggle.checked) {
+        document.body.classList.add("dark");
+        localStorage.setItem("theme", "dark");
+      } else {
+        document.body.classList.remove("dark");
+        localStorage.setItem("theme", "light");
+      }
+    });
+
+    // Remove preload class after full load so transitions work normally
+    window.addEventListener("load", () => {
+      document.documentElement.classList.remove("dark-preload");
+    });
+  </script>
+</body>
+</html>

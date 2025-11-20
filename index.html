@@ -1,0 +1,948 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <title>Yara's Castle</title>
+
+  <link
+    rel="stylesheet"
+    href="https://fonts.googleapis.com/css?family=Open+Sans:300,400,600"
+  />
+  <link rel="stylesheet" href="css/bootstrap.min.css" />
+  <link rel="stylesheet" href="slick/slick.css" />
+  <link rel="stylesheet" href="slick/slick-theme.css" />
+  <link rel="stylesheet" href="css/magnific-popup.css" />
+  <link rel="stylesheet" href="css/tooplate-style.css" />
+
+  <!-- Leaflet CSS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+
+  <style>
+      /* Video Background for Intro */
+      #video-background {
+          position: fixed;
+          top: 0;
+          left: 0;
+          width: 100vw;
+          height: 100vh;
+          object-fit: cover;
+          z-index: 1;
+          display: block;
+      }
+
+      #video-background.hidden {
+          display: none;
+      }
+
+      /* Fullscreen Map Styling */
+      #map {
+          position: fixed;
+          top: 0;
+          left: 0;
+          width: 100vw;
+          height: 100vh;
+          z-index: 5;
+          display: none;
+      }
+
+      .tm-top-container { z-index: 100; position: relative; }
+      .tm-content { z-index: 100; position: relative; }
+      .leaflet-top, .leaflet-bottom { z-index: 200; }
+
+      /* FIX: Allow map interaction but keep nav clickable */
+      body.map-active .tm-top-container { pointer-events: none; }
+      body.map-active .tm-nav { pointer-events: auto; }
+
+      /* Treasure-map labels */
+      .area-label {
+          pointer-events: none;
+          font-weight: 700;
+          font-size: 1.2rem;
+          color: white;
+          text-shadow: 2px 2px 4px black;
+      }
+
+      .ctrl {
+          background: #fff;
+          border: 1px solid #ccc;
+          border-radius: 8px;
+          padding: 8px 10px;
+          box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+      }
+      .back-btn {
+          padding: 6px 12px;
+          border: 0;
+          background: #eee;
+          border-radius: 6px;
+          cursor: pointer;
+          font-weight: 600;
+      }
+
+      /* -------------------------
+            VODS SECTION STYLES
+      --------------------------*/
+
+      .vod-section-title {
+          margin-top: 10px;
+          margin-bottom: 20px;
+      }
+
+      .vod-featured {
+          width: 85%;
+          aspect-ratio: 16/9;
+          background: #000;
+          border-radius: 12px;
+          overflow: hidden;
+          margin-bottom: 20px;
+          margin-left: 10px;
+          opacity: 0;
+          transform: translateY(20px);
+          transition: opacity 0.35s ease, transform 0.35s ease;
+
+      }
+
+      .vod-featured.vod-visible {
+          opacity: 1;
+          transform: translateY(0);
+      }
+
+      .vod-featured iframe {
+          width: 100%;
+          height: 100%;
+          border: 0;
+          display: block;
+
+      }
+
+      .vod-featured-info {
+          margin-bottom: 20px;
+          margin-left: 80px;
+      }
+
+      .vod-featured-info h3 {
+          font-size: 1.3rem;
+          font-weight: 700;
+          margin-bottom: 4px;
+      }
+
+      .vod-filter-bar {
+          display: flex;
+          gap: 10px;
+          margin-bottom: 20px;
+          justify-content: flex-start;
+          flex-wrap: wrap;
+      }
+
+      .vod-filter-bar button {
+          padding: 6px 14px;
+          border-radius: 999px;
+          border: 1px solid #ccc;
+          background: #ffffff;
+          cursor: pointer;
+          font-size: 0.9rem;
+          transition: 0.25s;
+          color: #333;
+      }
+
+      .vod-filter-bar button.active {
+          border-color: #4a6cf7;
+          color: #4a6cf7;
+      }
+
+      .vod-grid {
+          display: grid;
+          grid-template-columns: repeat(4, 1fr);
+          gap: 18px;
+          align-items: stretch; /* NEW */
+      }
+
+
+      @media (max-width: 1000px) {
+          .vod-grid {
+              grid-template-columns: repeat(3, 1fr);
+          }
+      }
+
+      @media (max-width: 768px) {
+          .vod-grid {
+              grid-template-columns: repeat(2, 1fr);
+          }
+      }
+
+      @media (max-width: 480px) {
+          .vod-grid {
+              grid-template-columns: 1fr;
+          }
+      }
+
+      .vod-card {
+          background: #fff;       /* WHITE CARD */
+          border-radius: 12px;
+          overflow: hidden;
+          cursor: pointer;
+          opacity: 0;
+          transform: translateY(25px);
+          display: flex;
+          flex-direction: column;
+          height: 100%;
+      }
+
+
+      .vod-thumb {
+          width: 100%;
+          aspect-ratio: 16 / 9;
+          object-fit: cover;
+          display: block;
+      }
+
+
+      .vod-body {
+          padding: 10px 12px;
+          background: #fff;      /* WHITE TEXT AREA */
+          flex-grow: 1;
+          display: flex;
+          flex-direction: column;
+          justify-content: space-between;
+          color: #000;           /* BLACK TEXT */
+      }
+
+
+
+      .vod-body div:first-child {
+          font-weight: 600;
+          margin-bottom: 4px;
+          color: #000;           /* TITLE BLACK */
+      }
+
+      .vod-body div:last-child {
+          opacity: 0.75;
+          font-size: 0.9rem;
+          color: #444;           /* DATE DARK GREY */
+      }
+
+
+      @keyframes bounceInSoft {
+          0% {
+              opacity: 0;
+              transform: translateY(20px);
+          }
+          60% {
+              opacity: 1;
+              transform: translateY(-6px);
+          }
+          100% {
+              opacity: 1;
+              transform: translateY(0);
+          }
+      }
+
+      .vod-card.in-view {
+          animation: bounceInSoft 0.55s cubic-bezier(0.22, 0.61, 0.36, 1) forwards;
+      }
+      .vod-featured {
+          width: 82%;
+          aspect-ratio: 16/9;
+          background: #000;
+          border-radius: 12px;
+          overflow: hidden;
+          margin-bottom: 20px;
+          margin-top: -100px;
+          margin-left: 80px;
+          opacity: 0;
+          transform: translateY(20px);
+          transition: opacity 0.35s ease, transform 0.35s ease;
+
+      }
+
+      /* Make the dropdown absolute so it doesn't move the page */
+      .tm-nav {
+          position: relative;
+      }
+
+      .tm-nav-links {
+          position: absolute;
+          top: 55px;          /* distance below the "Menu" button */
+          right: 0;
+
+
+          z-index: 99999;
+
+      }
+
+      .tm-top-container,
+      .tm-nav {
+          position: relative;
+          z-index: 9999 !important;
+      }
+
+
+      /* Make Leaflet controls always stay above overlays */
+      .leaflet-control,
+      .leaflet-top,
+      .leaflet-bottom,
+      .leaflet-control-container {
+          z-index: 999999 !important;
+      }
+      /* Move the back button away from the right wall */
+      .leaflet-top.leaflet-right .ctrl {
+          margin-right: 200px !important;   /* adjust as you like */
+          margin-top: 25px !important;     /* optional: move down slightly */
+      }
+
+  </style>
+</head>
+
+<body>
+
+<!-- Video Background (Intro only) -->
+<video id="video-background" autoplay muted loop playsinline>
+  <source src="background.mp4" type="video/mp4">
+</video>
+
+<!-- Loader -->
+<div id="loader-wrapper">
+  <div id="loader"></div>
+  <div class="loader-section section-left"></div>
+  <div class="loader-section section-right"></div>
+</div>
+
+
+
+<!-- FULLSCREEN MAP -->
+<div id="map"></div>
+
+<div class="tm-main-container">
+  <div class="tm-top-container">
+
+    <nav id="tmNav" class="tm-nav">
+      <a class="tm-navbar-menu" href="#">Menu</a>
+      <ul class="tm-nav-links">
+        <li class="tm-nav-item active">
+          <a href="#" data-linkid="0" data-align="right" class="tm-nav-link">Intro</a>
+        </li>
+        <li class="tm-nav-item">
+          <a href="#" data-linkid="1" data-align="right" class="tm-nav-link">Interactive Map</a>
+        </li>
+        <li class="tm-nav-item">
+          <a href="#" data-linkid="2" data-align="middle" class="tm-nav-link">VOD's</a>
+        </li>
+        <li class="tm-nav-item">
+          <a href="#" data-linkid="3" data-align="left" class="tm-nav-link">Socials</a>
+        </li>
+      </ul>
+    </nav>
+
+    <header class="tm-site-header-box tm-bg-dark">
+      <h1 class="tm-site-title">Yara's Castle</h1>
+      <p class="mb-0 tm-site-subtitle">Welcome in</p>
+    </header>
+  </div>
+
+  <!-- CONTENT SECTIONS -->
+  <div class="container-fluid">
+    <div class="row">
+      <div class="col-md-12">
+
+        <div class="tm-content">
+
+          <!-- INTRO -->
+          <section class="tm-section tm-section-0">
+            <h2 class="tm-section-title mb-3 font-weight-bold">About Me</h2>
+            <div class="tm-textbox tm-bg-dark">
+              <p>✨Australian
+                ✨Mid-20s
+                ✨V-Streamer</p>
+              <p class="mb-0">I’m all about singing, art, gaming, and creating a space where we can connect and have fun together!</p>
+              <p>I consider you all to be part of Yara's Castle, where we can relax, unwind, and share in the fun. If you have any questions, feel free to ask—I'm here to chat and make your time here enjoyable!</p>
+            </div>
+          </section>
+
+          <!-- EMPTY MAP SECTION (handled via #map fullscreen) -->
+          <section class="tm-section tm-section-1"></section>
+
+          <!-- VODS SECTION (NEW tm-section-2) -->
+          <section class="tm-section tm-section-2 tm-section-left">
+
+
+            <div id="vodFeatured" class="vod-featured"></div>
+
+            <div class="vod-featured-info">
+              <h3 id="vodFeaturedTitle"></h3>
+              <p id="vodFeaturedDate" style="opacity:0.75;"></p>
+            </div>
+
+            <div class="vod-filter-bar">
+              <button id="vodSortNewest" class="active">Newest</button>
+              <button id="vodSortOldest">Oldest</button>
+            </div>
+
+            <div id="vodGrid" class="vod-grid"></div>
+          </section>
+
+          <!-- SOCIALS -->
+          <section class="tm-section tm-section-3 tm-section-left">
+            <form class="tm-contact-form">
+              <div class="socials" style="display:flex; gap:15px; flex-wrap:wrap; justify-content:center;">
+                <a href="https://www.twitch.tv/yara_ofzelda" target="_blank">
+                  <img src="https://api.iconify.design/simple-icons/twitch.svg?color=black" width="32">
+                </a>
+                <a href="https://www.youtube.com/@Yara_ofZelda" target="_blank">
+                  <img src="https://api.iconify.design/simple-icons/youtube.svg?color=black" width="32">
+                </a>
+                <a href="https://www.tiktok.com/@yara_ofzelda" target="_blank">
+                  <img src="https://api.iconify.design/simple-icons/tiktok.svg?color=black" width="32">
+                </a>
+                <a href="https://www.instagram.com/yara_ofzelda" target="_blank">
+                  <img src="https://api.iconify.design/simple-icons/instagram.svg?color=black" width="32">
+                </a>
+                <a href="https://x.com/Yara_ofZelda" target="_blank">
+                  <img src="https://api.iconify.design/simple-icons/x.svg?color=black" width="32">
+                </a>
+                <a href="https://discord.gg/yourserver" target="_blank">
+                  <img src="https://api.iconify.design/simple-icons/discord.svg?color=black" width="32">
+                </a>
+                <a href="https://throne.com/yara_ofprincess" target="_blank">
+                  <img src="throne.svg" width="32">
+                </a>
+              </div>
+            </form>
+          </section>
+
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="tm-bottom-container"></div>
+</div>
+
+<!-- JS LIBRARIES -->
+<script src="js/jquery-1.11.0.min.js"></script>
+<script src="js/background.cycle.js"></script>
+<script src="slick/slick.min.js"></script>
+<script src="js/jquery.magnific-popup.min.js"></script>
+
+<!-- LEAFLET -->
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+<script>
+  let slickInitDone = false;
+  let previousImageId = 0, currentImageId = 0;
+  let pageAlign = "right";
+  let bgCycle;
+  let map;
+
+  /* -------------------------
+      YOUTUBE VODS CONFIG
+  --------------------------*/
+  const YT_API_KEY = "AIzaSyCmvdGTCXivYarJUJTfi9Kahg-qdwmv4xI";
+  const YT_CHANNEL_HANDLE = "@Yara_ofZelda";
+
+  let vodVideos = [];
+  let vodFeaturedId = null;
+  let vodInitDone = false;
+
+  function formatVodDate(d) {
+    return new Date(d).toLocaleDateString(undefined, {
+      year: "numeric",
+      month: "short",
+      day: "numeric"
+    });
+  }
+
+  async function getUploadsPlaylistId() {
+    const url = "https://www.googleapis.com/youtube/v3/channels"
+      + "?part=contentDetails"
+      + "&forHandle=" + encodeURIComponent(YT_CHANNEL_HANDLE)
+      + "&key=" + encodeURIComponent(YT_API_KEY);
+
+    const res = await fetch(url);
+    const json = await res.json();
+    if (!json.items || !json.items.length) {
+      throw new Error("No channel items returned");
+    }
+    return json.items[0].contentDetails.relatedPlaylists.uploads;
+  }
+
+  async function loadAllVodUploads(playlistId) {
+    let token = "";
+    const all = [];
+
+    while (true) {
+      let url = "https://www.googleapis.com/youtube/v3/playlistItems"
+        + "?part=snippet"
+        + "&playlistId=" + encodeURIComponent(playlistId)
+        + "&maxResults=50"
+        + "&key=" + encodeURIComponent(YT_API_KEY);
+
+      if (token) {
+        url += "&pageToken=" + encodeURIComponent(token);
+      }
+
+      const res = await fetch(url);
+      const json = await res.json();
+
+      if (!json.items) break;
+
+      json.items.forEach(function (v) {
+        if (!v.snippet || !v.snippet.resourceId) return;
+        all.push({
+          id: v.snippet.resourceId.videoId,
+          title: v.snippet.title,
+          date: v.snippet.publishedAt
+        });
+      });
+
+      if (!json.nextPageToken) break;
+      token = json.nextPageToken;
+    }
+
+    return all;
+  }
+
+  function renderVodFeatured() {
+    if (!vodVideos.length || !vodFeaturedId) return;
+
+    const featured = vodVideos.find(function (v) { return v.id === vodFeaturedId; }) || vodVideos[0];
+    const container = document.getElementById("vodFeatured");
+    if (!container) return;
+
+    container.classList.remove("vod-visible");
+    container.innerHTML =
+      '<iframe src="https://www.youtube.com/embed/' + featured.id + '" ' +
+      'allowfullscreen></iframe>';
+
+    const titleEl = document.getElementById("vodFeaturedTitle");
+    const dateEl = document.getElementById("vodFeaturedDate");
+
+    if (titleEl) titleEl.textContent = featured.title;
+    if (dateEl) dateEl.textContent = formatVodDate(featured.date);
+
+    setTimeout(function () {
+      container.classList.add("vod-visible");
+    }, 50);
+  }
+
+  function setupVodScrollAnimations() {
+    const cards = document.querySelectorAll(".vod-card");
+    if (!cards.length) return;
+
+    if (!("IntersectionObserver" in window)) {
+      cards.forEach(function (c) { c.classList.add("in-view"); });
+      return;
+    }
+
+    const observer = new IntersectionObserver(function (entries, obs) {
+      entries.forEach(function (entry) {
+        if (entry.isIntersecting) {
+          entry.target.classList.add("in-view");
+          obs.unobserve(entry.target);
+        }
+      });
+    }, { threshold: 0.2 });
+
+    cards.forEach(function (el) {
+      observer.observe(el);
+    });
+  }
+
+  function renderVodGrid(videos) {
+    const grid = document.getElementById("vodGrid");
+    if (!grid) return;
+    grid.innerHTML = "";
+
+    videos.forEach(function (v, idx) {
+      const card = document.createElement("div");
+      card.className = "vod-card";
+      card.setAttribute("data-animate", "bounce");
+      card.style.animationDelay = (idx * 0.04) + "s";
+
+      card.innerHTML =
+        '<img class="vod-thumb" src="https://i.ytimg.com/vi/' + v.id + '/mqdefault.jpg" alt="VOD thumbnail">' +
+        '<div class="vod-body">' +
+        '<div>' + v.title + '</div>' +
+        '<div>' + formatVodDate(v.date) + '</div>' +
+        '</div>';
+
+      card.onclick = function () {
+        vodFeaturedId = v.id;
+        renderVodFeatured();
+        window.scrollTo({ top: 0, behavior: "smooth" });
+      };
+
+      grid.appendChild(card);
+    });
+
+    setupVodScrollAnimations();
+  }
+
+  async function initVods() {
+    if (vodInitDone) return;
+    if (!document.getElementById("vodGrid")) return;
+
+    vodInitDone = true;
+
+    try {
+      const playlistId = await getUploadsPlaylistId();
+      vodVideos = await loadAllVodUploads(playlistId);
+
+      if (!vodVideos.length) return;
+
+      // Default: newest first
+      vodVideos.sort(function (a, b) {
+        return new Date(b.date) - new Date(a.date);
+      });
+
+      vodFeaturedId = vodVideos[0].id;
+
+      const btnNewest = document.getElementById("vodSortNewest");
+      const btnOldest = document.getElementById("vodSortOldest");
+
+      if (btnNewest && btnOldest) {
+        btnNewest.classList.add("active");
+        btnNewest.addEventListener("click", function () {
+          btnNewest.classList.add("active");
+          btnOldest.classList.remove("active");
+          const sorted = vodVideos.slice().sort(function (a, b) {
+            return new Date(b.date) - new Date(a.date);
+          });
+          renderVodGrid(sorted);
+        });
+
+        btnOldest.addEventListener("click", function () {
+          btnOldest.classList.add("active");
+          btnNewest.classList.remove("active");
+          const sorted = vodVideos.slice().sort(function (a, b) {
+            return new Date(a.date) - new Date(b.date);
+          });
+          renderVodGrid(sorted);
+        });
+      }
+
+      renderVodFeatured();
+      renderVodGrid(vodVideos);
+    } catch (err) {
+      console.error("Error initialising VODs", err);
+    }
+  }
+
+  /* -------------------------------
+      PAGE LOAD
+  --------------------------------*/
+  window.onload = () => $("body").addClass("loaded");
+
+  /* -------------------------------
+      NAV CLICK HANDLER
+  --------------------------------*/
+  // SAFETY FIX: always reset visibility before fade transitions
+  $(".tm-section").stop(true, true).css("display", "none").css("opacity", 1);
+
+  function navLinkClick(e) {
+    e.preventDefault();
+    if ($(e.target).hasClass("external")) return;
+
+    // SAFETY FIX: reset all sections so fadeIn never breaks
+    $(".tm-section").stop(true, true).css("display", "none").css("opacity", 1);
+
+    previousImageId = currentImageId;
+    currentImageId = $(e.target).data("linkid");
+
+    // Show/hide video background based on current tab
+    const videoEl = document.getElementById("video-background");
+    if (currentImageId === 0) {
+      videoEl.classList.remove("hidden");
+    } else {
+      videoEl.classList.add("hidden");
+    }
+
+// Show full header only on Intro page
+    if (currentImageId === 0) {
+      $(".tm-site-header-box").show();
+    } else {
+      $(".tm-site-header-box").hide();
+    }
+
+    bgCycle.cycleToNextImage(previousImageId, currentImageId);
+
+    $(`.tm-nav-item:eq(${previousImageId})`).removeClass("active");
+    $(`.tm-nav-item:eq(${currentImageId})`).addClass("active");
+
+    $(`.tm-section-${previousImageId}`).fadeOut(200, function() {
+
+      if (currentImageId === 1) {
+        $('body').addClass('map-active');
+        $("#map").fadeIn(400, () => map.invalidateSize());
+        $(`.tm-section-${currentImageId}`).fadeIn(200);
+      } else {
+        $('body').removeClass('map-active');
+        $("#map").fadeOut();
+        $(`.tm-section-${currentImageId}`).fadeIn(200);
+      }
+
+      if (currentImageId === 2) {
+        initVods(); // safe now
+      }
+
+      adjustFooter();
+    });
+
+    if (previousImageId === 1) $("#map").fadeOut();
+  }
+
+
+  /* -------------------------------
+      DOCUMENT READY
+  --------------------------------*/
+  $(document).ready(function() {
+
+    $(".tm-section").fadeOut(0);
+    $(".tm-section-0").fadeIn();
+
+    /* -------------------------
+        TREASURE MAP LOGIC
+        (EXACT from map.html)
+    --------------------------*/
+
+    const BASE = {
+      url: 'https://wallpapercave.com/wp/wp10612832.jpg',
+      width: 2000,
+      height: 1200
+    };
+
+    const AREAS = {
+      northwest: {
+        label: 'Other Castle',
+        bounds: [[501.0, 382.0], [422.0, 276.0]],
+        image: 'https://www.elventower.com/wp-content/uploads/2016/11/Small-town-castle-W-1200x900.jpg',
+        markers: [
+          { coords: [473.6, 349.4], popup: 'Room one' },
+          { coords: [476.9, 300.6], popup: 'Room Two' }
+        ]
+      },
+      southeast: {
+        label: 'Yaras Castle',
+        bounds: [[829.0, 1559.0], [740.0, 1451.0]],
+        image: 'https://usercontent.one/wp/www.wistedt.net/wp-content/uploads/2019/08/medieval_castle_map-803x1024.png',
+        markers: [
+          { coords: [798.3, 1521.7], popup: 'Room 1' }
+        ]
+      }
+    };
+
+    map = L.map("map", {
+      crs: L.CRS.Simple,
+      minZoom: -1,
+      maxZoom: 6,
+      zoomSnap: 0.25,
+      zoomDelta: 0.5,
+      wheelPxPerZoomLevel: 80
+    });
+
+    const imageBounds = [[0, 0], [BASE.height, BASE.width]];
+    const baseOverlay = L.imageOverlay(BASE.url, imageBounds).addTo(map);
+
+    map.fitBounds(imageBounds);
+    map.setZoom(0);   // or 1, or 2 depending how close you want it
+
+    map.setMaxBounds(imageBounds);
+
+    const overviewGroup = L.layerGroup().addTo(map);
+    const areaPolys = {};
+    const detailOverlays = {};
+    const markerGroups = {};
+    let activeAreaKey = null;
+
+    function makeStyle(active) {
+      return {
+        color: active ? '#ff4d4f' : '#0d6efd',
+        weight: active ? 3 : 2,
+        dashArray: active ? '4 2' : '6 4',
+        fillOpacity: active ? 0.1 : 0.05
+      };
+    }
+
+    function ensureMarkers(area) {
+      if (!markerGroups[area]) {
+        markerGroups[area] = L.layerGroup();
+        AREAS[area].markers.forEach(m => {
+          markerGroups[area].addLayer(L.marker(m.coords).bindPopup(m.popup));
+        });
+      }
+      return markerGroups[area];
+    }
+
+    function ensureDetail(area) {
+      if (!detailOverlays[area]) {
+        detailOverlays[area] = L.imageOverlay(
+          AREAS[area].image,
+          AREAS[area].bounds
+        );
+      }
+      return detailOverlays[area];
+    }
+
+    function padded(bounds, pad=20) {
+      const [[y1,x1],[y2,x2]] = bounds;
+      return [[y1-pad, x1-pad], [y2+pad, x2+pad]];
+    }
+
+    function enterDetail(area) {
+      if (activeAreaKey === area) return;
+
+      if (activeAreaKey) {
+        map.removeLayer(ensureDetail(activeAreaKey));
+        map.removeLayer(ensureMarkers(activeAreaKey));
+      }
+
+      map.removeLayer(baseOverlay);
+      map.removeLayer(overviewGroup);
+
+      ensureDetail(area).addTo(map);
+      ensureMarkers(area).addTo(map);
+
+      Object.keys(AREAS).forEach(k =>
+        areaPolys[k].setStyle(makeStyle(k === area))
+      );
+
+      map.setMaxBounds(padded(AREAS[area].bounds, 40));
+      map.fitBounds(AREAS[area].bounds);
+
+      activeAreaKey = area;
+      backCtrl.setVisible(true);
+    }
+
+    function resetOverview() {
+      if (activeAreaKey) {
+        map.removeLayer(ensureDetail(activeAreaKey));
+        map.removeLayer(ensureMarkers(activeAreaKey));
+      }
+      activeAreaKey = null;
+
+      Object.values(markerGroups).forEach(g => map.removeLayer(g));
+
+      baseOverlay.addTo(map);
+      overviewGroup.addTo(map);
+
+      Object.keys(AREAS).forEach(k =>
+        areaPolys[k].setStyle(makeStyle(false))
+      );
+
+      map.fitBounds(imageBounds);
+      map.setMaxBounds(imageBounds);
+
+      backCtrl.setVisible(false);
+    }
+
+    // Create area rectangles + labels
+    Object.entries(AREAS).forEach(([key, cfg]) => {
+      const rect = L.rectangle(cfg.bounds, makeStyle(false))
+        .on("click", () => enterDetail(key));
+
+      const cy = (cfg.bounds[0][0] + cfg.bounds[1][0]) / 2;
+      const cx = (cfg.bounds[0][1] + cfg.bounds[1][1]) / 2;
+
+      const label = L.marker([cy,cx],{
+        icon: L.divIcon({ className:"area-label", html: cfg.label })
+      });
+
+      overviewGroup.addLayer(rect);
+      overviewGroup.addLayer(label);
+
+      areaPolys[key] = rect;
+    });
+
+    // BACK BUTTON
+    const BackControl = L.Control.extend({
+      options: { position: "topright" },
+      onAdd() {
+        const div = L.DomUtil.create("div","ctrl");
+        div.style.display = "none";
+        div.innerHTML = `<button class="back-btn">â† Back</button>`;
+        div.querySelector(".back-btn").onclick = resetOverview;
+        this._container = div;
+        return div;
+      },
+      setVisible(show) {
+        this._container.style.display = show ? "block":"none";
+      }
+    });
+
+    const backCtrl = new BackControl().addTo(map);
+    resetOverview();
+
+    /* -------------------------
+       BACKGROUND & NAV SETUP
+    --------------------------*/
+    bgCycle = $("body").backgroundCycle({
+      imageUrls: ["img/link.png","img/link.png","img/b2.jpg","img/b3.jpg"],
+      fadeSpeed: 2000,
+      duration: -1,
+      backgroundSize: SCALING_MODE_COVER
+    });
+
+    $(".tm-nav-link").on("click", navLinkClick);
+
+    $(".tm-navbar-menu").click(function(){
+      $(".tm-nav-links").fadeToggle(200);
+    });
+
+    $(window).resize(function(){
+      if (currentImageId === 2) setupSlider();
+      adjustFooter();
+    });
+// Show subtitle only on Intro page
+    if (currentImageId === 0) {
+      $(".tm-site-subtitle").show();
+    } else {
+      $(".tm-site-subtitle").hide();
+    }
+
+    adjustFooter();
+
+    // Pre-load VODs silently once DOM is ready
+    initVods();
+  });
+
+  /* -------------------------
+      FOOTER & SLIDER
+  --------------------------*/
+  function adjustFooter() {
+    const h = $(window).height();
+    const total = $(".tm-top-container").height() + $(".tm-content").height();
+    if (total > h) $(".tm-bottom-container").addClass("tm-static");
+    else $(".tm-bottom-container").removeClass("tm-static");
+  }
+
+  function setupSlider() {
+    let show = 4, scroll = 2;
+    const w = $(window).width();
+
+    if (w < 480) { show = 1; scroll = 1; }
+    else if (w < 768) { show = 2; scroll = 1; }
+    else if (w < 992) { show = 3; scroll = 2; }
+
+    if (slickInitDone) $(".tm-gallery").slick("unslick");
+    slickInitDone = true;
+
+    $(".tm-gallery").slick({
+      dots:true,
+      infinite:true,
+      prevArrow:false,
+      nextArrow:false,
+      slidesToShow:show,
+      slidesToScroll:scroll
+    });
+
+    $(".slick-list").magnificPopup({
+      delegate:"a",
+      type:"image",
+      gallery:{enabled:true}
+    });
+  }
+
+</script>
+
+</body>
+</html>
